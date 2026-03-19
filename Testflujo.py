@@ -4,7 +4,7 @@ from faster_whisper import WhisperModel
 import ollama
 
 # --- CONFIGURACIÓN ---
-AUDIO_PATH = "la-fascinante-y-misteriosa-historia-de-mega-man-legends.mp3"
+AUDIO_PATH = "audio_prueba2horas.mp3"
 WHISPER_MODEL_SIZE = "base"
 OLLAMA_MODEL = "llama3.2"
 
@@ -21,7 +21,7 @@ def call_ollama(prompt, system_role, context_size=4096):
         ],
         options={
             'num_ctx': context_size,
-            'temperature': 0.3, # Baja para resúmenes precisos
+            'temperature': 0.5, # Baja para resúmenes precisos
         }
     )
     return response['message']['content']
