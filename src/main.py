@@ -1,6 +1,7 @@
 #main de fast API
 from fastapi import FastAPI
-from src.Routes.Room.router import router as session_router
+from src.Routes.Room.RoomRouter import router as session_router
+from src.Routes.User.UserRouter import router as user_router
 from src.DB.motor import connect_to_mongo, close_mongo_connection
 
 app = FastAPI(title="PWA Audio API")
@@ -16,6 +17,7 @@ async def shutdown_db_client():
 
 # Incluir rutas
 app.include_router(session_router)
+app.include_router(user_router)
 
 @app.get("/")
 async def root():

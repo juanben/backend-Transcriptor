@@ -4,7 +4,7 @@ from faster_whisper import WhisperModel
 import ollama
 
 # --- CONFIGURACIÓN ---
-AUDIO_PATH = "audio_prueba2horas.mp3"
+AUDIO_PATH = "la-fascinante-y-misteriosa-historia-de-mega-man-legends.mp3"
 WHISPER_MODEL_SIZE = "base"
 OLLAMA_MODEL = "llama3.2"
 
