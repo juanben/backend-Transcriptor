@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, BackgroundTasks
+from fastapi import APIRouter, UploadFile, BackgroundTasks, HTTPException, status
 from src.DB.motor import db_instance
 from src.Utils.whisper_tools import transcribe_audio
 from src.Utils.ollama_tools import generate_summary
@@ -74,7 +74,10 @@ async def create_room(payload: dict):
     required = ["name", "owner_email"]
     for field in required:
         if field not in payload or not str(payload[field]).strip():
-            return {"error": f"'{field}' es requerido"}
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"'{field}' es requerido"
+            )
 
     room_doc = {
         "name": payload["name"].strip(),
@@ -82,7 +85,8 @@ async def create_room(payload: dict):
         "is_public": bool(payload.get("is_public", False)),
         "allow_download": bool(payload.get("allow_download", False)),
         "created_at": __import__('datetime').datetime.utcnow(),
-        "members": [payload["owner_email"].strip().lower()]
+        "members": [payload["owner_email"].strip().lower()],
+        "waitlist": []
     }
     
     result = await db_instance.db.rooms.insert_one(room_doc)
@@ -94,16 +98,46 @@ async def create_room(payload: dict):
     
     return {"room_id": str(result.inserted_id), "room": room_doc}
 
+@router.get("/user-rooms/{owner_email}")
+async def get_user_rooms(owner_email: str):
+    """Recupera todas las rooms creadas por un usuario (owner)"""
+    owner_email = owner_email.strip().lower()
+    
+    if not owner_email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="owner_email es requerido"
+        )
+    
+    cursor = db_instance.db.rooms.find({"owner_email": owner_email})
+    rooms = await cursor.to_list(length=None)
+    
+    # Convertir los IDs a string para serializarlos
+    for room in rooms:
+        room["_id"] = str(room["_id"])
+    
+    return {
+        "owner_email": owner_email,
+        "total": len(rooms),
+        "rooms": rooms
+    }
+
 @router.post("/room/{room_id}/join")
 async def join_room(room_id: str, payload: dict):
     """Un usuario se une a una room"""
     user_email = payload.get("user_email")
     if not user_email:
-        return {"error": "'user_email' es requerido"}
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="'user_email' es requerido"
+        )
 
     room = await db_instance.db.rooms.find_one({"_id": __import__('bson').ObjectId(room_id)})
     if not room:
-        return {"error": "Room no encontrada"}
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Room no encontrada"
+        )
 
     user_email = user_email.strip().lower()
     if user_email not in room.get("members", []):
@@ -136,10 +170,16 @@ async def create_room_session(room_id: str, file: UploadFile, session_name: str,
     """Crea una session en una room (sube audio)"""
     room = await db_instance.db.rooms.find_one({"_id": __import__('bson').ObjectId(room_id)})
     if not room:
-        return {"error": "Room no encontrada"}
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Room no encontrada"
+        )
 
     if room["owner_email"] != creator_email.strip().lower():
-        return {"error": "Solo el propietario puede crear sesiones"}
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo el propietario puede crear sesiones"
+        )
 
     session_id = str(uuid.uuid4())
     path_dir = Path("Records") / room_id
@@ -172,15 +212,24 @@ async def get_room_session(room_id: str, session_id: str, requester_email: str):
     """Retorna datos de la session si el acceso está permitido"""
     room = await db_instance.db.rooms.find_one({"_id": __import__('bson').ObjectId(room_id)})
     if not room:
-        return {"error": "Room no encontrada"}
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Room no encontrada"
+        )
 
     session = await db_instance.db.sessions.find_one({"session_id": session_id}, {"_id": 0})
     if not session or session.get("room_id") != room_id:
-        return {"error": "Session no encontrada"}
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Session no encontrada"
+        )
 
     requester_email = requester_email.strip().lower()
     if not room.get("is_public", False) and requester_email != room.get("owner_email"):
-        return {"error": "Acceso denegado: session privada"}
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acceso denegado: session privada"
+        )
 
     return {
         "room": room["name"],
@@ -192,11 +241,17 @@ async def list_room_sessions(room_id: str, requester_email: str):
     """Lista todas las sessions de una room con filtro de acceso"""
     room = await db_instance.db.rooms.find_one({"_id": __import__('bson').ObjectId(room_id)})
     if not room:
-        return {"error": "Room no encontrada"}
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Room no encontrada"
+        )
 
     requester_email = requester_email.strip().lower()
     if not room.get("is_public", False) and requester_email != room.get("owner_email"):
-        return {"error": "Acceso denegado: room privada"}
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acceso denegado: room privada"
+        )
 
     cursor = db_instance.db.sessions.find({"room_id": room_id}, {"_id": 0})
     sesiones = await cursor.to_list(length=100)
