@@ -4,9 +4,11 @@ from faster_whisper import WhisperModel
 import ollama
 
 # --- CONFIGURACIÓN ---
-AUDIO_PATH = "la-fascinante-y-misteriosa-historia-de-mega-man-legends.mp3"
+AUDIO_PATH = "graciel.mp3"
 WHISPER_MODEL_SIZE = "base"
 OLLAMA_MODEL = "llama3.2"
+
+
 
 # Límite de palabras para procesar de un solo golpe (seguridad de contexto)
 CHUNK_LIMIT = 2000 
@@ -39,7 +41,11 @@ def run_full_pipeline():
     
     end_whisper = time.time()
     print(f"✅ Transcripción completada en {end_whisper - start_whisper:.2f}s")
-    
+    #Definicion de transcripcion y resumen
+    nombre_archivo = f"transcripcion_{AUDIO_PATH}.txt"
+    with open(nombre_archivo, 'w', encoding='utf-8') as archivo:
+        archivo.write(full_text)
+    print(f"Archivo '{nombre_archivo}' creado con éxito.")
     # Métricas de texto
     palabras = full_text.split()
     conteo_palabras = len(palabras)
