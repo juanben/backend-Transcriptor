@@ -85,21 +85,21 @@ async def update_room_name(room_id: str, payload: UpdateRoomNameRequest):
         handle_room_error(error)
 
 
-@router.post("/{room_id}/waitlist")
-async def add_to_waitlist(room_id: str, payload: WaitlistRequest):
+@router.post("/{room_code}/waitlist")
+async def add_to_waitlist(room_code: str, payload: WaitlistRequest):
     """Agrega un usuario a la lista de espera de una room."""
     try:
-        return await RoomService.add_to_waitlist(room_id, payload)
+        return await RoomService.add_to_waitlist(room_code, payload)
     except RoomError as error:
         handle_room_error(error)
 
 
-@router.get("/{room_id}/waitlist")
-async def get_waitlist(room_id: str, owner_email: EmailStr = Query(...)):
+@router.get("/{room_code}/waitlist")
+async def get_waitlist(room_code: str, owner_email: EmailStr = Query(...)):
     """Obtiene la lista de espera de una room."""
     try:
         payload = GetWaitlistRequest(owner_email=owner_email)
-        return await RoomService.get_waitlist(room_id, payload)
+        return await RoomService.get_waitlist(room_code, payload)
     except RoomError as error:
         handle_room_error(error)
 

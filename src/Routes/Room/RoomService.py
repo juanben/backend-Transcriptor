@@ -52,6 +52,20 @@ class RoomService:
         return room
 
     @staticmethod
+    async def _get_room_by_identifier_or_fail(room_identifier: str) -> dict:
+        """Resuelve una room usando room_id o room_code.
+
+        Mantiene la estructura de ruta /room/{identificador}/waitlist, admitiendo
+        tanto el ObjectId como el código de room de 5 caracteres.
+        """
+        room_identifier = room_identifier.strip()
+
+        if len(room_identifier) == 5:
+            return await RoomService._get_room_by_code_or_fail(room_identifier)
+
+        return await RoomService._get_room_or_fail(room_identifier)
+
+    @staticmethod
     async def _generate_unique_room_code() -> str:
         """Genera un codigo unico de 5 caracteres para la room."""
         while True:
@@ -243,17 +257,17 @@ class RoomService:
     @staticmethod
     async def add_to_waitlist(room_id: str, payload: WaitlistRequest) -> dict:
         """Agrega un usuario a la lista de espera de una room."""
-        room = await RoomService._get_room_or_fail(room_id)
+        room = await RoomService._get_room_by_identifier_or_fail(room_id)
 
         if payload.user_email in room.get("members", []):
             return {
-                "room_id": room_id,
+                "room_id": str(room["_id"]),
                 "message": "El usuario ya es miembro de esta room",
             }
 
         if payload.user_email in room.get("waitlist", []):
             return {
-                "room_id": room_id,
+                "room_id": str(room["_id"]),
                 "message": "El usuario ya esta en la lista de espera",
             }
 
@@ -263,7 +277,7 @@ class RoomService:
         )
 
         return {
-            "room_id": room_id,
+            "room_id": str(room["_id"]),
             "user_email": payload.user_email,
             "message": "Suscrito a la lista de espera correctamente",
             "waitlist_position": len(room.get("waitlist", [])) + 1,
@@ -272,7 +286,7 @@ class RoomService:
     @staticmethod
     async def get_waitlist(room_id: str, payload: GetWaitlistRequest) -> dict:
         """Retorna la lista de espera de una room."""
-        room = await RoomService._get_room_or_fail(room_id)
+        room = await RoomService._get_room_by_identifier_or_fail(room_id)
         RoomService._ensure_owner(
             room,
             payload.owner_email,
@@ -281,7 +295,7 @@ class RoomService:
 
         waitlist = room.get("waitlist", [])
         return {
-            "room_id": room_id,
+            "room_id": str(room["_id"]),
             "room_name": room.get("name"),
             "total": len(waitlist),
             "waitlist": waitlist,
