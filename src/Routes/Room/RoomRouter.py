@@ -10,6 +10,7 @@ from src.Routes.Room.RoomModels import (
     JoinRoomByCodeRequest,
     JoinRoomRequest,
     UpdateRoomNameRequest,
+    UserEmailRequest,
     WaitlistRequest,
 )
 from src.Routes.Room.RoomService import RoomError, RoomService
@@ -36,6 +37,15 @@ async def get_user_rooms(owner_email: str):
     """Recupera todas las rooms creadas por un usuario."""
     try:
         return await RoomService.get_user_rooms(owner_email)
+    except RoomError as error:
+        handle_room_error(error)
+
+
+@router.get("/player-rooms/{user_email}")
+async def get_player_rooms(user_email: EmailStr):
+    """Recupera rooms donde un usuario es miembro o esta en waitlist."""
+    try:
+        return await RoomService.get_player_rooms(str(user_email))
     except RoomError as error:
         handle_room_error(error)
 
@@ -94,6 +104,15 @@ async def add_to_waitlist(room_code: str, payload: WaitlistRequest):
         handle_room_error(error)
 
 
+@router.delete("/{room_id}/waitlist/self")
+async def remove_self_from_waitlist(room_id: str, payload: UserEmailRequest):
+    """Permite que un usuario se elimine a si mismo de la lista de espera."""
+    try:
+        return await RoomService.remove_self_from_waitlist(room_id, payload)
+    except RoomError as error:
+        handle_room_error(error)
+
+
 @router.get("/{room_code}/waitlist")
 async def get_waitlist(room_code: str, owner_email: EmailStr = Query(...)):
     """Obtiene la lista de espera de una room."""
@@ -118,6 +137,15 @@ async def accept_all_waitlist(room_id: str, payload: AcceptAllWaitlistRequest):
     """Acepta todos los usuarios de la lista de espera."""
     try:
         return await RoomService.accept_all_waitlist(room_id, payload)
+    except RoomError as error:
+        handle_room_error(error)
+
+
+@router.delete("/{room_id}/members/self")
+async def remove_self_from_members(room_id: str, payload: UserEmailRequest):
+    """Permite que un usuario se elimine a si mismo de members."""
+    try:
+        return await RoomService.remove_self_from_members(room_id, payload)
     except RoomError as error:
         handle_room_error(error)
 

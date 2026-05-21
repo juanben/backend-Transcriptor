@@ -15,6 +15,7 @@ from src.Routes.Room.RoomModels import (
     JoinRoomByCodeRequest,
     JoinRoomRequest,
     UpdateRoomNameRequest,
+    UserEmailRequest,
     WaitlistRequest,
 )
 
@@ -141,6 +142,40 @@ class RoomService:
             "owner_email": owner_email,
             "total": len(serialized_rooms),
             "rooms": serialized_rooms,
+        }
+
+    @staticmethod
+    async def get_player_rooms(user_email: str) -> dict:
+        """Recupera rooms donde el usuario es miembro o esta en waitlist."""
+        user_email = user_email.strip().lower()
+        if not user_email:
+            raise RoomError("user_email es requerido", status_code=400)
+
+        cursor = db_instance.db.rooms.find(
+            {
+                "owner_email": {"$ne": user_email},
+                "$or": [
+                    {"members": user_email},
+                    {"waitlist": user_email},
+                ]
+            }
+        )
+        rooms = await cursor.to_list(length=None)
+
+        player_rooms = []
+        for room in rooms:
+            serialized_room = RoomService._serialize_room(room)
+            is_member = user_email in room.get("members", [])
+            is_waitlisted = user_email in room.get("waitlist", [])
+            serialized_room["is_member"] = is_member
+            serialized_room["is_waitlisted"] = is_waitlisted
+            serialized_room["membership_status"] = "member" if is_member else "waitlist"
+            player_rooms.append(serialized_room)
+
+        return {
+            "user_email": user_email,
+            "total": len(player_rooms),
+            "rooms": player_rooms,
         }
 
     @staticmethod
@@ -281,6 +316,53 @@ class RoomService:
             "user_email": payload.user_email,
             "message": "Suscrito a la lista de espera correctamente",
             "waitlist_position": len(room.get("waitlist", [])) + 1,
+        }
+
+    @staticmethod
+    async def remove_self_from_waitlist(room_id: str, payload: UserEmailRequest) -> dict:
+        """Permite que un usuario se elimine a si mismo de la waitlist."""
+        room = await RoomService._get_room_or_fail(room_id)
+        waitlist = room.get("waitlist", [])
+
+        if payload.user_email not in waitlist:
+            raise RoomError("El usuario no esta en la lista de espera", status_code=404)
+
+        await db_instance.db.rooms.update_one(
+            {"_id": room["_id"]},
+            {"$pull": {"waitlist": payload.user_email}},
+        )
+
+        return {
+            "room_id": room_id,
+            "user_email": payload.user_email,
+            "removed": True,
+            "list": "waitlist",
+            "message": "Usuario eliminado de la lista de espera correctamente",
+        }
+
+    @staticmethod
+    async def remove_self_from_members(room_id: str, payload: UserEmailRequest) -> dict:
+        """Permite que un usuario se elimine a si mismo de members."""
+        room = await RoomService._get_room_or_fail(room_id)
+        members = room.get("members", [])
+
+        if payload.user_email == room.get("owner_email"):
+            raise RoomError("El propietario no puede eliminarse de members", status_code=403)
+
+        if payload.user_email not in members:
+            raise RoomError("El usuario no es miembro de esta room", status_code=404)
+
+        await db_instance.db.rooms.update_one(
+            {"_id": room["_id"]},
+            {"$pull": {"members": payload.user_email}},
+        )
+
+        return {
+            "room_id": room_id,
+            "user_email": payload.user_email,
+            "removed": True,
+            "list": "members",
+            "message": "Usuario eliminado de members correctamente",
         }
 
     @staticmethod

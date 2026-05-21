@@ -68,6 +68,15 @@ class WaitlistRequest(BaseModel):
         return value.lower().strip()
 
 
+class UserEmailRequest(BaseModel):
+    """Validar solicitud que solo requiere el correo del usuario."""
+    user_email: EmailStr
+
+    @validator("user_email")
+    def user_email_lowercase(cls, value):
+        return value.lower().strip()
+
+
 class GetWaitlistRequest(BaseModel):
     """Validar solicitud para consultar la lista de espera."""
     owner_email: EmailStr
