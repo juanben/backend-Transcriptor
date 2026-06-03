@@ -10,6 +10,7 @@ from src.Routes.Room.RoomModels import (
     AcceptAllWaitlistRequest,
     AcceptWaitlistMemberRequest,
     CreateRoomRequest,
+    CreateDefaultRoomRequest,
     DeleteRoomRequest,
     GetWaitlistRequest,
     JoinRoomByCodeRequest,
@@ -126,6 +127,63 @@ class RoomService:
             "room_code": room_code,
             "room": room_doc,
         }
+
+    @staticmethod
+    async def create_default_room(payload) -> dict:
+        """Crea una room por defecto con el nombre 'Sala {owner_email}'."""
+        owner_email = payload.owner_email.strip().lower()
+        
+        # Verificar si ya existe una sala default para este usuario
+        existing_default_room = await db_instance.db.rooms.find_one({
+            "owner_email": owner_email,
+            "isDefault": True
+        })
+        
+        if existing_default_room:
+            raise RoomError("El usuario ya tiene una sala por defecto creada", status_code=409)
+        
+        room_code = await RoomService._generate_unique_room_code()
+        
+        # Generar nombre de la sala
+        room_name = f"Sala {payload.owner_email}"
+        
+        room_doc = {
+            "name": room_name,
+            "owner_email": owner_email,
+            "room_code": room_code,
+            "is_public": False,
+            "allow_download": False,
+            "isDefault": True,
+            "created_at": datetime.utcnow(),
+            "members": [owner_email],
+            "waitlist": [],
+        }
+
+        result = await db_instance.db.rooms.insert_one(room_doc)
+        room_doc["_id"] = str(result.inserted_id)
+
+        return {
+            "room_id": str(result.inserted_id),
+            "room_code": room_code,
+            "room": room_doc,
+        }
+
+    @staticmethod
+    async def get_default_room(owner_email: str) -> dict:
+        """Recupera la room por defecto de un usuario."""
+        owner_email = owner_email.strip().lower()
+        if not owner_email:
+            raise RoomError("owner_email es requerido", status_code=400)
+
+        room = await db_instance.db.rooms.find_one({
+            "owner_email": owner_email,
+            "isDefault": True
+        })
+
+        if not room:
+            raise RoomError("Room por defecto no encontrada", status_code=404)
+
+        return RoomService._serialize_room(room)
 
     @staticmethod
     async def get_user_rooms(owner_email: str) -> dict:

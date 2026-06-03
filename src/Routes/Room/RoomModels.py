@@ -116,3 +116,12 @@ class DeleteRoomRequest(BaseModel):
     @validator("owner_email")
     def owner_email_lowercase(cls, value):
         return value.lower().strip()
+
+
+class CreateDefaultRoomRequest(BaseModel):
+    """Validar solicitud para crear una room por defecto."""
+    owner_email: EmailStr
+
+    @validator("owner_email")
+    def owner_email_lowercase(cls, value):
+        return value.lower().strip()

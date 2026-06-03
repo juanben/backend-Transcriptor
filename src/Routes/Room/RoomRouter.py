@@ -1,10 +1,11 @@
-from fastapi import APIRouter, HTTPException, Query
+﻿from fastapi import APIRouter, HTTPException, Query
 from pydantic import EmailStr
 
 from src.Routes.Room.RoomModels import (
     AcceptAllWaitlistRequest,
     AcceptWaitlistMemberRequest,
     CreateRoomRequest,
+    CreateDefaultRoomRequest,
     DeleteRoomRequest,
     GetWaitlistRequest,
     JoinRoomByCodeRequest,
@@ -28,6 +29,24 @@ async def create_room(payload: CreateRoomRequest):
     """Crea una room con el usuario dueno."""
     try:
         return await RoomService.create_room(payload)
+    except RoomError as error:
+        handle_room_error(error)
+
+
+@router.post("/createDefaultRoom")
+async def create_default_room(payload: CreateDefaultRoomRequest):
+    """Crea una room por defecto con nombre 'Sala {email}' y propiedades por defecto."""
+    try:
+        return await RoomService.create_default_room(payload)
+    except RoomError as error:
+        handle_room_error(error)
+
+
+@router.post("/getDefaultRoom")
+async def get_default_room(payload: CreateDefaultRoomRequest):
+    """Retorna la room por defecto de un usuario."""
+    try:
+        return await RoomService.get_default_room(payload.owner_email)
     except RoomError as error:
         handle_room_error(error)
 
